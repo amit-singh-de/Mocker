@@ -11,7 +11,7 @@ from src.main import DataGenerator
 
 app = FastAPI()
 fake = Faker()
-templates = Jinja2Templates(directory="../templates")
+templates = Jinja2Templates(directory="templates")
 
 # This will be used to generate mock data based on the user's fields
 class Field(BaseModel):

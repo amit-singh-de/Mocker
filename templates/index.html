@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Data Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { width: 80%; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+        table, th, td { border: 1px solid black; }
+        th, td { padding: 10px; text-align: center; word-wrap: break-word; }
+        input, select { margin: 5px; }
+        button { margin-top: 10px; }
+        .table-container {
+            overflow: auto;
+            max-height: 500px;
+        }
+    
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+    
+        th:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mock Data Generator</h1>
+        <form id="data-form">
+            <div id="fields-container">
+                <div class="field">
+                    <input type="text" name="field_name" placeholder="Field Name" required />
+                    <select name="data_type">
+                        <option value="name">Name</option>
+                        <option value="email">Email</option>
+                        <option value="address">Address</option>
+                        <option value="phone">Phone Number</option>
+                        <option value="date">Date</option>
+                        <option value="text">Text</option>
+                    </select>
+                    <button type="button" onclick="removeField(this)">Remove</button>
+                </div>
+            </div>
+            <button type="button" onclick="addField()">Add Field</button>
+            <br><br>
+            <input type="number" name="num_records" placeholder="Number of Records" value="10" required />
+            <br><br>
+            <button type="button" onclick="generateData()">Generate Data</button>
+        </form>
+
+        <div id="preview-container">
+            <h2>Preview</h2>
+            <div class="table-container">
+                <table id="preview-table"></table>
+            </div>
+            <button id="download-btn" style="display:none;" onclick="downloadData()">Download Data</button>
+        </div>
+    </div>
+
+    <script>
+        function addField() {
+            const container = document.getElementById('fields-container');
+            const fieldDiv = document.createElement('div');
+            fieldDiv.classList.add('field');
+            fieldDiv.innerHTML = `
+                <input type="text" name="field_name" placeholder="Field Name" required />
+                <select name="data_type">
+                    <option value="name">Name</option>
+                    <option value="email">Email</option>
+                    <option value="address">Address</option>
+                    <option value="phone">Phone Number</option>
+                    <option value="date">Date</option>
+                    <option value="text">Text</option>
+                </select>
+                <button type="button" onclick="removeField(this)">Remove</button>
+            `;
+            container.appendChild(fieldDiv);
+        }
+
+        function removeField(button) {
+            button.parentElement.remove();
+        }
+
+        async function generateData() {
+            const fields = document.querySelectorAll('.field');
+            const numRecords = parseInt(document.querySelector('input[name="num_records"]').value);
+            const fieldDict = [];
+
+            // Collect field names and data types, and build the dictionary {name: dtype}
+            fields.forEach(field => {
+                const fieldName = field.querySelector('input[name="field_name"]').value;
+                const dataType = field.querySelector('select[name="data_type"]').value;
+                fieldDict.push({ [fieldName]: dataType });
+            });
+
+            // Make an API request to your FastAPI backend to generate the data
+            const response = await fetch('/generate/', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    field_dict: JSON.stringify(fieldDict), // Send the fieldDict as a JSON string
+                    num_records: numRecords
+                }),
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+
+            // Check for a successful response
+            if (!response.ok) {
+                alert('Error generating data');
+                return;
+            }
+
+            const data = await response.json(); // FastAPI will return JSON data
+            const table = document.getElementById('preview-table');
+            table.innerHTML = ''; // Clear any previous preview
+
+            // Create table header row
+            const headerRow = document.createElement('tr');
+            Object.keys(data[0]).forEach(key => {
+                const th = document.createElement('th');
+                th.textContent = key;
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+
+            // Create table data rows
+            data.forEach(row => {
+                const rowElement = document.createElement('tr');
+                Object.values(row).forEach(value => {
+                    const td = document.createElement('td');
+                    td.textContent = value;
+                    rowElement.appendChild(td);
+                });
+                table.appendChild(rowElement);
+            });
+
+            // Show download button after data is generated
+            document.getElementById('download-btn').style.display = 'inline-block';
+        }
+
+        function downloadData() {
+            const table = document.getElementById('preview-table');
+            let csv = '';
+            const rows = table.querySelectorAll('tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('th, td');
+                const rowData = Array.from(cells).map(cell => `"${cell.textContent}"`).join(',');
+                csv += rowData + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'mock_data.csv';
+            link.click();
+        }
+    </script>
+</body>
+</html>
